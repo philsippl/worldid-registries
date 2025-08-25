@@ -15,7 +15,7 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
     ////////////////////////////////////////////////////////////
 
     mapping(uint256 => address) public accountIndexToRecoveryAddress;
-    mapping(address => uint256) public authenticatorAddressToAccountIndex;
+    mapping(address => uint256) public authenticatorAddressToPackedAccountIndex;
     mapping(uint256 => uint256) public signatureNonces;
     mapping(uint256 => uint256) public accountRecoveryCounter;
 
@@ -100,11 +100,11 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
     function recoverAccountIndex(bytes32 messageHash, bytes memory signature) internal view returns (uint256) {
         address signatureRecoveredAddress = ECDSA.recover(messageHash, signature);
         require(signatureRecoveredAddress != address(0), "Invalid signature");
-        uint256 accountIndex = authenticatorAddressToAccountIndex[signatureRecoveredAddress];
-        require(accountIndex != 0, "Account does not exist");
-        uint256 accountIndexLow = uint256(uint128(accountIndex));
-        require(accountIndex >> 128 == accountRecoveryCounter[accountIndexLow], "Invalid account recovery counter");
-        return (uint256)(accountIndexLow);
+        uint256 accountIndexPacked = authenticatorAddressToPackedAccountIndex[signatureRecoveredAddress];
+        require(accountIndexPacked != 0, "Account does not exist");
+        uint256 accountIndex = uint256(uint128(accountIndexPacked));
+        require(accountIndexPacked >> 128 == accountRecoveryCounter[accountIndex], "Invalid account recovery counter");
+        return accountIndex;
     }
 
     /**
@@ -127,9 +127,9 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         for (uint256 i = 0; i < authenticatorAddresses.length; i++) {
             require(authenticatorAddresses[i] != address(0), "Authenticator cannot be the zero address");
             require(
-                authenticatorAddressToAccountIndex[authenticatorAddresses[i]] == 0, "Authenticator already exists"
+                authenticatorAddressToPackedAccountIndex[authenticatorAddresses[i]] == 0, "Authenticator already exists"
             );
-            authenticatorAddressToAccountIndex[authenticatorAddresses[i]] = nextAccountIndex;
+            authenticatorAddressToPackedAccountIndex[authenticatorAddresses[i]] = nextAccountIndex;
         }
 
         // Update tree
@@ -167,10 +167,10 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
             for (uint256 j = 0; j < authenticatorAddresses[i].length; j++) {
                 require(authenticatorAddresses[i][j] != address(0), "Authenticator cannot be the zero address");
                 require(
-                    authenticatorAddressToAccountIndex[authenticatorAddresses[i][j]] == 0,
+                    authenticatorAddressToPackedAccountIndex[authenticatorAddresses[i][j]] == 0,
                     "Authenticator already exists"
                 );
-                authenticatorAddressToAccountIndex[authenticatorAddresses[i][j]] = nextAccountIndex;
+                authenticatorAddressToPackedAccountIndex[authenticatorAddresses[i][j]] = nextAccountIndex;
             }
 
             emit AccountCreated(
@@ -203,8 +203,8 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         uint256[] calldata siblingNodes,
         uint256 nonce
     ) public {
-        require(authenticatorAddressToAccountIndex[oldAuthenticatorAddress] != 0, "Authenticator does not exist");
-        require(authenticatorAddressToAccountIndex[newAuthenticatorAddress] == 0, "Authenticator already exists");
+        require(authenticatorAddressToPackedAccountIndex[oldAuthenticatorAddress] != 0, "Authenticator does not exist");
+        require(authenticatorAddressToPackedAccountIndex[newAuthenticatorAddress] == 0, "Authenticator already exists");
         require(
             oldAuthenticatorAddress != newAuthenticatorAddress, "Old and new authenticator addresses cannot be the same"
         );
@@ -226,15 +226,15 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         require(accountIndex == recoverAccountIndex(messageHash, signature), "Invalid account index");
         require(nonce == signatureNonces[accountIndex]++, "Invalid nonce");
         require(
-            uint256(uint128(authenticatorAddressToAccountIndex[oldAuthenticatorAddress])) == accountIndex,
+            uint256(uint128(authenticatorAddressToPackedAccountIndex[oldAuthenticatorAddress])) == accountIndex,
             "Authenticator does not belong to account"
         );
 
         // Delete old authenticator
-        delete authenticatorAddressToAccountIndex[oldAuthenticatorAddress];
+        delete authenticatorAddressToPackedAccountIndex[oldAuthenticatorAddress];
 
         // Add new authenticator
-        authenticatorAddressToAccountIndex[newAuthenticatorAddress] =
+        authenticatorAddressToPackedAccountIndex[newAuthenticatorAddress] =
             (accountRecoveryCounter[accountIndex] << 128) | accountIndex;
 
         // Update tree
@@ -265,7 +265,7 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         uint256 nonce
     ) public {
         require(newAuthenticatorAddress != address(0), "New authenticator address cannot be the zero address");
-        require(authenticatorAddressToAccountIndex[newAuthenticatorAddress] == 0, "Authenticator already exists");
+        require(authenticatorAddressToPackedAccountIndex[newAuthenticatorAddress] == 0, "Authenticator already exists");
 
         bytes32 messageHash = _hashTypedDataV4(
             keccak256(
@@ -283,7 +283,7 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         require(nonce == signatureNonces[accountIndex]++, "Invalid nonce");
 
         // Add new authenticator
-        authenticatorAddressToAccountIndex[newAuthenticatorAddress] =
+        authenticatorAddressToPackedAccountIndex[newAuthenticatorAddress] =
             (accountRecoveryCounter[accountIndex] << 128) | accountIndex;
 
         // Update tree
@@ -310,7 +310,7 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         uint256[] calldata siblingNodes,
         uint256 nonce
     ) public {
-        require(authenticatorAddressToAccountIndex[authenticatorAddress] != 0, "Authenticator does not exist");
+        require(authenticatorAddressToPackedAccountIndex[authenticatorAddress] != 0, "Authenticator does not exist");
 
         bytes32 messageHash = _hashTypedDataV4(
             keccak256(
@@ -327,12 +327,12 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         require(accountIndex == recoverAccountIndex(messageHash, signature), "Invalid account index");
         require(nonce == signatureNonces[accountIndex]++, "Invalid nonce");
         require(
-            uint256(uint128(authenticatorAddressToAccountIndex[authenticatorAddress])) == accountIndex,
+            uint256(uint128(authenticatorAddressToPackedAccountIndex[authenticatorAddress])) == accountIndex,
             "Authenticator does not belong to account"
         );
 
         // Delete authenticator
-        delete authenticatorAddressToAccountIndex[authenticatorAddress];
+        delete authenticatorAddressToPackedAccountIndex[authenticatorAddress];
 
         // Update tree
         tree.update(accountIndex - 1, oldOffchainSignerCommitment, newOffchainSignerCommitment, siblingNodes);
@@ -378,12 +378,12 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
                 || signatureRecoveredAddress == defaultRecoveryAddress,
             "Invalid signature"
         );
-        require(authenticatorAddressToAccountIndex[newAuthenticatorAddress] == 0, "Authenticator already exists");
+        require(authenticatorAddressToPackedAccountIndex[newAuthenticatorAddress] == 0, "Authenticator already exists");
         require(newAuthenticatorAddress != address(0), "New authenticator address cannot be the zero address");
 
         accountRecoveryCounter[accountIndex]++;
 
-        authenticatorAddressToAccountIndex[newAuthenticatorAddress] =
+        authenticatorAddressToPackedAccountIndex[newAuthenticatorAddress] =
             (accountRecoveryCounter[accountIndex] << 128) | accountIndex;
 
         // Update tree
