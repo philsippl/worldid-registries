@@ -117,7 +117,7 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         address recoveryAddress,
         address[] calldata authenticatorAddresses,
         uint256 offchainSignerCommitment
-    ) public {
+    ) external {
         require(authenticatorAddresses.length > 0, "authenticatorAddresses length must be greater than 0");
 
         if (recoveryAddress != address(0)) {
@@ -150,7 +150,7 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         address[] calldata recoveryAddresses,
         address[][] calldata authenticatorAddresses,
         uint256[] calldata offchainSignerCommitments
-    ) public {
+    ) external {
         require(recoveryAddresses.length > 0, "Length must be greater than 0");
         require(
             recoveryAddresses.length == authenticatorAddresses.length,
@@ -202,7 +202,7 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         bytes memory signature,
         uint256[] calldata siblingNodes,
         uint256 nonce
-    ) public {
+    ) external {
         require(authenticatorAddressToPackedAccountIndex[oldAuthenticatorAddress] != 0, "Authenticator does not exist");
         require(authenticatorAddressToPackedAccountIndex[newAuthenticatorAddress] == 0, "Authenticator already exists");
         require(
@@ -263,7 +263,7 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         bytes memory signature,
         uint256[] calldata siblingNodes,
         uint256 nonce
-    ) public {
+    ) external {
         require(newAuthenticatorAddress != address(0), "New authenticator address cannot be the zero address");
         require(authenticatorAddressToPackedAccountIndex[newAuthenticatorAddress] == 0, "Authenticator already exists");
 
@@ -309,7 +309,7 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         bytes memory signature,
         uint256[] calldata siblingNodes,
         uint256 nonce
-    ) public {
+    ) external {
         require(authenticatorAddressToPackedAccountIndex[authenticatorAddress] != 0, "Authenticator does not exist");
 
         bytes32 messageHash = _hashTypedDataV4(
@@ -358,7 +358,7 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         bytes memory signature,
         uint256[] calldata siblingNodes,
         uint256 nonce
-    ) public {
+    ) external {
         require(accountIndex > 0, "Account index must be greater than 0");
         require(nextAccountIndex > accountIndex, "Account does not exist");
         require(nonce == signatureNonces[accountIndex]++, "Invalid nonce");
