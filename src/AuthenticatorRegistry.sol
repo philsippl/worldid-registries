@@ -6,6 +6,7 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {console} from "forge-std/console.sol";
 
 contract AuthenticatorRegistry is EIP712, Ownable2Step {
     using LeanIMT for LeanIMTData;
@@ -91,6 +92,11 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
     ////////////////////////////////////////////////////////////
     //                        Functions                       //
     ////////////////////////////////////////////////////////////
+
+    function initTree(uint256 depth, uint256 size, uint256[] calldata sideNodes) external {
+        nextAccountIndex = size + 1;
+        LeanIMT.initialize(tree, depth, size, sideNodes);
+    }
 
     function domainSeparatorV4() public view returns (bytes32) {
         return _domainSeparatorV4();

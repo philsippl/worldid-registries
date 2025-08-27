@@ -4,22 +4,26 @@ pragma solidity ^0.8.13;
 import {Test, console} from "forge-std/Test.sol";
 import {AuthenticatorRegistry} from "../src/AuthenticatorRegistry.sol";
 import {TreeHelper} from "../src/TreeHelper.sol";
+import {LeanIMT} from "../src/tree/LeanIMT.sol";
 
 contract AuthenticatorRegistryTest is Test {
     AuthenticatorRegistry public authenticatorRegistry;
 
     address public constant DEFAULT_RECOVERY_ADDRESS = address(0xDEADBEEF);
     address public constant RECOVERY_ADDRESS = address(0xDEADBEEF);
+    uint256 public constant OFFCHAIN_SIGNER_COMMITMENT = 0x1234567890;
     address public AUTHENTICATOR_ADDRESS1;
     address public AUTHENTICATOR_ADDRESS2;
-    uint256 public constant OFFCHAIN_SIGNER_COMMITMENT = 0x1234567890;
+    address public AUTHENTICATOR_ADDRESS3;
     uint256 public constant AUTH1_PRIVATE_KEY = 0x01;
     uint256 public constant AUTH2_PRIVATE_KEY = 0x02;
+    uint256 public constant AUTH3_PRIVATE_KEY = 0x03;
 
     function setUp() public {
         authenticatorRegistry = new AuthenticatorRegistry(DEFAULT_RECOVERY_ADDRESS);
         AUTHENTICATOR_ADDRESS1 = vm.addr(AUTH1_PRIVATE_KEY);
         AUTHENTICATOR_ADDRESS2 = vm.addr(AUTH2_PRIVATE_KEY);
+        AUTHENTICATOR_ADDRESS3 = vm.addr(AUTH3_PRIVATE_KEY);
     }
 
     ////////////////////////////////////////////////////////////
@@ -55,22 +59,31 @@ contract AuthenticatorRegistryTest is Test {
     ////////////////////////////////////////////////////////////
 
     function test_CreateAccount() public {
+        uint256 size = authenticatorRegistry.nextAccountIndex();
         address[] memory authenticatorAddresses = new address[](1);
         authenticatorAddresses[0] = AUTHENTICATOR_ADDRESS1;
         authenticatorRegistry.createAccount(address(0), authenticatorAddresses, OFFCHAIN_SIGNER_COMMITMENT);
+        assertEq(authenticatorRegistry.nextAccountIndex(), size + 1);
     }
 
     function test_CreateManyAccounts() public {
-        address[] memory recoveryAddresses = new address[](2);
-        address[][] memory authenticatorAddresses = new address[][](2);
-        authenticatorAddresses[0] = new address[](1);
-        authenticatorAddresses[0][0] = AUTHENTICATOR_ADDRESS1;
-        authenticatorAddresses[1] = new address[](1);
-        authenticatorAddresses[1][0] = AUTHENTICATOR_ADDRESS2;
-        uint256[] memory offchainSignerCommitments = new uint256[](2);
-        offchainSignerCommitments[0] = OFFCHAIN_SIGNER_COMMITMENT;
-        offchainSignerCommitments[1] = OFFCHAIN_SIGNER_COMMITMENT;
+        uint256 size = authenticatorRegistry.nextAccountIndex();
+        uint256 numAccounts = 100;
+        address[] memory recoveryAddresses = new address[](numAccounts);
+        address[][] memory authenticatorAddresses = new address[][](numAccounts);
+        uint256[] memory offchainSignerCommitments = new uint256[](numAccounts);
+
+        for (uint256 i = 0; i < numAccounts; i++) {
+            authenticatorAddresses[i] = new address[](1);
+            authenticatorAddresses[i][0] = address(uint160(i + 1));
+            offchainSignerCommitments[i] = OFFCHAIN_SIGNER_COMMITMENT;
+        }
+
+        uint256 startGas = gasleft();
         authenticatorRegistry.createManyAccounts(recoveryAddresses, authenticatorAddresses, offchainSignerCommitments);
+        uint256 endGas = gasleft();
+        console.log("Gas used per account:", (startGas - endGas) / numAccounts);
+        assertEq(authenticatorRegistry.nextAccountIndex(), size + numAccounts);
     }
 
     function test_UpdateAuthenticatorSuccess() public {
@@ -101,6 +114,52 @@ contract AuthenticatorRegistryTest is Test {
         assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS1), 0);
         // AUTHENTICATOR_ADDRESS2 has been added
         assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS2), 1);
+    }
+
+    function test_UpdateAuthenticatorSuccess_FakeDepth30() public {
+        uint256 depth = 30;
+        uint256[] memory sideNodes = new uint256[](depth);
+        sideNodes[depth - 1] = TreeHelper.emptyNode(depth);
+        authenticatorRegistry.initTree(depth, 1 << (depth - 1) + 1, sideNodes);
+
+        address[] memory authenticatorAddresses = new address[](1);
+        authenticatorAddresses[0] = AUTHENTICATOR_ADDRESS1;
+        authenticatorRegistry.createAccount(RECOVERY_ADDRESS, authenticatorAddresses, OFFCHAIN_SIGNER_COMMITMENT);
+
+        uint256 nonce = 0;
+        uint256 accountIndex = authenticatorRegistry.nextAccountIndex() - 1;
+
+        // AUTHENTICATOR_ADDRESS1 is assigned to account 1
+        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS1), accountIndex);
+        // AUTHENTICATOR_ADDRESS2 is not assigned to any account
+        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS2), 0);
+
+        bytes memory signature = eip712Sign(
+            authenticatorRegistry.UPDATE_AUTHENTICATOR_TYPEHASH(),
+            abi.encode(accountIndex, AUTHENTICATOR_ADDRESS1, AUTHENTICATOR_ADDRESS2, OFFCHAIN_SIGNER_COMMITMENT, nonce),
+            AUTH1_PRIVATE_KEY
+        );
+
+        uint256[] memory proof = new uint256[](1);
+
+        uint256 startGas = gasleft();
+        authenticatorRegistry.updateAuthenticator(
+            accountIndex,
+            AUTHENTICATOR_ADDRESS1,
+            AUTHENTICATOR_ADDRESS2,
+            OFFCHAIN_SIGNER_COMMITMENT,
+            OFFCHAIN_SIGNER_COMMITMENT,
+            signature,
+            proof,
+            nonce
+        );
+        uint256 endGas = gasleft();
+        console.log("Gas used:", startGas - endGas);
+
+        // AUTHENTICATOR_ADDRESS1 has been removed
+        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS1), 0);
+        // AUTHENTICATOR_ADDRESS2 has been added
+        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS2), accountIndex);
     }
 
     function test_UpdateAuthenticatorInvalidAccountIndex() public {
