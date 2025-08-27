@@ -17,7 +17,7 @@ contract AuthenticatorRegistryTest is Test {
     uint256 public constant AUTH2_PRIVATE_KEY = 0x02;
 
     function setUp() public {
-        authenticatorRegistry = new AuthenticatorRegistry();
+        authenticatorRegistry = new AuthenticatorRegistry(DEFAULT_RECOVERY_ADDRESS);
         AUTHENTICATOR_ADDRESS1 = vm.addr(AUTH1_PRIVATE_KEY);
         AUTHENTICATOR_ADDRESS2 = vm.addr(AUTH2_PRIVATE_KEY);
     }
@@ -82,7 +82,7 @@ contract AuthenticatorRegistryTest is Test {
         uint256 accountIndex = 1;
 
         // AUTHENTICATOR_ADDRESS1 is assigned to account 1
-        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(AUTHENTICATOR_ADDRESS1), accountIndex);
+        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS1), accountIndex);
 
         (bytes memory signature, uint256[] memory proof) = updateAuthenticatorProofAndSignature(accountIndex, nonce);
 
@@ -98,9 +98,9 @@ contract AuthenticatorRegistryTest is Test {
         );
 
         // AUTHENTICATOR_ADDRESS1 has been removed
-        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(AUTHENTICATOR_ADDRESS1), 0);
+        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS1), 0);
         // AUTHENTICATOR_ADDRESS2 has been added
-        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(AUTHENTICATOR_ADDRESS2), 1);
+        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS2), 1);
     }
 
     function test_UpdateAuthenticatorInvalidAccountIndex() public {
@@ -136,7 +136,7 @@ contract AuthenticatorRegistryTest is Test {
         uint256 accountIndex = 1;
 
         // AUTHENTICATOR_ADDRESS1 is assigned to account 1
-        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(AUTHENTICATOR_ADDRESS1), accountIndex);
+        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS1), accountIndex);
 
         (bytes memory signature, uint256[] memory proof) = updateAuthenticatorProofAndSignature(accountIndex, nonce);
 
@@ -183,8 +183,8 @@ contract AuthenticatorRegistryTest is Test {
         );
 
         // Both authenticators should now belong to the same account
-        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(AUTHENTICATOR_ADDRESS1), accountIndex);
-        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(AUTHENTICATOR_ADDRESS2), accountIndex);
+        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS1), accountIndex);
+        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS2), accountIndex);
     }
 
     function test_RemoveAuthenticatorSuccess() public {
@@ -217,8 +217,8 @@ contract AuthenticatorRegistryTest is Test {
         );
 
         // AUTHENTICATOR_ADDRESS2 should be removed; AUTHENTICATOR_ADDRESS1 remains
-        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(AUTHENTICATOR_ADDRESS2), 0);
-        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(AUTHENTICATOR_ADDRESS1), accountIndex);
+        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS2), 0);
+        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS1), accountIndex);
     }
 
     function test_RecoverAccountSuccess() public {
@@ -255,10 +255,17 @@ contract AuthenticatorRegistryTest is Test {
             nonce
         );
 
-        // Old authenticators removed
-        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(AUTHENTICATOR_ADDRESS1), 0);
-        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(AUTHENTICATOR_ADDRESS2), 0);
-        // New authenticator added
-        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(NEW_AUTHENTICATOR), accountIndex);
+        // Old authenticator still exists but with lower recovery counter
+        assertEq(
+            uint128(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS1)),
+            uint128(accountIndex)
+        );
+        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS1) >> 128, 0);
+        // New authenticator added with higher recovery counter
+        assertEq(
+            uint128(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(NEW_AUTHENTICATOR)),
+            uint128(accountIndex)
+        );
+        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(NEW_AUTHENTICATOR) >> 128, 1);
     }
 }

@@ -84,8 +84,10 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
     //                        Constructor                     //
     ////////////////////////////////////////////////////////////
 
-    constructor() EIP712(EIP712_NAME, EIP712_VERSION) {}
-    
+    constructor(address _defaultRecoveryAddress) EIP712(EIP712_NAME, EIP712_VERSION) Ownable(msg.sender) {
+        defaultRecoveryAddress = _defaultRecoveryAddress;
+    }
+
     ////////////////////////////////////////////////////////////
     //                        Functions                       //
     ////////////////////////////////////////////////////////////
