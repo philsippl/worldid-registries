@@ -16,7 +16,6 @@ contract AuthenticatorRegistryTest is Test {
         authenticatorRegistry = new AuthenticatorRegistry();
     }
 
-
     function test_CreateAccount() public {
         address[] memory authenticatorAddresses = new address[](1);
         authenticatorAddresses[0] = AUTHENTICATOR_ADDRESS1;

@@ -2,6 +2,8 @@
 pragma solidity ^0.8.4;
 
 import {Skyscraper} from "../hash/Skyscraper.sol";
+import {PoseidonT3} from "poseidon-solidity/PoseidonT3.sol";
+import {console} from "forge-std/console.sol";
 
 uint256 constant SNARK_SCALAR_FIELD =
     21_888_242_871_839_275_222_246_405_745_257_275_088_548_364_400_416_034_343_698_204_186_575_808_495_617;
@@ -30,6 +32,35 @@ error LeafDoesNotExist();
 /// it is updated based on the number of leaves in the tree. This approach
 /// results in the calculation of significantly fewer hashes, making the tree more efficient.
 library InternalLeanIMT {
+    function _initialize(LeanIMTData storage self, uint256 depth, uint256 size, uint256[] calldata sideNodes)
+        external
+    {
+        self.depth = depth;
+        self.size = size;
+        for (uint256 i = 0; i < sideNodes.length; i++) {
+            self.sideNodes[i] = sideNodes[i];
+        }
+    }
+
+    function _debugPrint(LeanIMTData storage self) external view {
+        console.log("depth: %s", self.depth);
+        console.log("size: %s", self.size);
+        for (uint256 i = 0; i < self.depth; i++) {
+            console.log("sideNodes[%s]: %s", i, self.sideNodes[i]);
+        }
+    }
+
+    /**
+     * @dev Implements the Hash function used in the tree.
+     * @param a The first input to the hash function.
+     * @param b The second input to the hash function.
+     * @return The hash of the two inputs.
+     */
+    function hash(uint256 a, uint256 b) internal pure returns (uint256) {
+        return Skyscraper.compress(a, b);
+        // return PoseidonT3.hash([a, b]);
+    }
+
     /// @dev Inserts a new leaf into the incremental merkle tree.
     /// The function ensures that the leaf is valid according to the
     /// constraints of the tree and then updates the tree's structure accordingly.
@@ -59,7 +90,7 @@ library InternalLeanIMT {
 
         for (uint256 level = 0; level < treeDepth;) {
             if ((index >> level) & 1 == 1) {
-                node = Skyscraper.compress(self.sideNodes[level], node);
+                node = hash(self.sideNodes[level], node);
             } else {
                 self.sideNodes[level] = node;
             }
@@ -154,7 +185,7 @@ library InternalLeanIMT {
                 // If it has a right child the result will be the hash(leftNode, rightNode) if not,
                 // it will be the leftNode.
                 if (rightNode != 0) {
-                    parentNode = Skyscraper.compress(leftNode, rightNode);
+                    parentNode = hash(leftNode, rightNode);
                 } else {
                     parentNode = leftNode;
                 }
@@ -240,8 +271,8 @@ library InternalLeanIMT {
                     revert LeafGreaterThanSnarkScalarField();
                 }
 
-                node = Skyscraper.compress(siblingNodes[i], node);
-                oldRoot = Skyscraper.compress(siblingNodes[i], oldRoot);
+                node = hash(siblingNodes[i], node);
+                oldRoot = hash(siblingNodes[i], oldRoot);
 
                 unchecked {
                     ++i;
@@ -256,8 +287,8 @@ library InternalLeanIMT {
                         self.sideNodes[level] = node;
                     }
 
-                    node = Skyscraper.compress(node, siblingNodes[i]);
-                    oldRoot = Skyscraper.compress(oldRoot, siblingNodes[i]);
+                    node = hash(node, siblingNodes[i]);
+                    oldRoot = hash(oldRoot, siblingNodes[i]);
 
                     unchecked {
                         ++i;

@@ -6,3 +6,7 @@ test:
 clean:
 	forge clean
 
+fmt: 
+	forge fmt
+
+all: test fmt
