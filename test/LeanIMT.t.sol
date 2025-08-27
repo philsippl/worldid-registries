@@ -74,9 +74,6 @@ contract LeanIMTTest is Test {
             tree.insert(leaves[i]);
         }
         uint256[] memory proof = TreeHelper.leanInclusionProof(leaves, 0);
-        for (uint256 i = 0; i < proof.length; i++) {
-            console.log("proof[%s]: %s", i, proof[i]);
-        }
         uint256 gasStart = gasleft();
         tree.update(0, 0, 1337, proof);
         uint256 gasEnd = gasleft();
