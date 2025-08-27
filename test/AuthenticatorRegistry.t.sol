@@ -154,4 +154,112 @@ contract AuthenticatorRegistryTest is Test {
             nonce
         );
     }
+
+    function test_InsertAuthenticatorSuccess() public {
+        address[] memory authenticatorAddresses = new address[](1);
+        authenticatorAddresses[0] = AUTHENTICATOR_ADDRESS1;
+        authenticatorRegistry.createAccount(RECOVERY_ADDRESS, authenticatorAddresses, OFFCHAIN_SIGNER_COMMITMENT);
+
+        uint256 accountIndex = 1;
+        uint256 nonce = 0;
+
+        bytes memory signature = eip712Sign(
+            authenticatorRegistry.INSERT_AUTHENTICATOR_TYPEHASH(),
+            abi.encode(accountIndex, AUTHENTICATOR_ADDRESS2, OFFCHAIN_SIGNER_COMMITMENT, nonce),
+            AUTH1_PRIVATE_KEY
+        );
+
+        uint256[] memory leaves = new uint256[](1);
+        leaves[0] = OFFCHAIN_SIGNER_COMMITMENT;
+        uint256[] memory proof = TreeHelper.leanInclusionProof(leaves, 0);
+
+        authenticatorRegistry.insertAuthenticator(
+            accountIndex,
+            AUTHENTICATOR_ADDRESS2,
+            OFFCHAIN_SIGNER_COMMITMENT,
+            OFFCHAIN_SIGNER_COMMITMENT,
+            signature,
+            proof,
+            nonce
+        );
+
+        // Both authenticators should now belong to the same account
+        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(AUTHENTICATOR_ADDRESS1), accountIndex);
+        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(AUTHENTICATOR_ADDRESS2), accountIndex);
+    }
+
+    function test_RemoveAuthenticatorSuccess() public {
+        address[] memory authenticatorAddresses = new address[](2);
+        authenticatorAddresses[0] = AUTHENTICATOR_ADDRESS1;
+        authenticatorAddresses[1] = AUTHENTICATOR_ADDRESS2;
+        authenticatorRegistry.createAccount(RECOVERY_ADDRESS, authenticatorAddresses, OFFCHAIN_SIGNER_COMMITMENT);
+
+        uint256 accountIndex = 1;
+        uint256 nonce = 0;
+
+        bytes memory signature = eip712Sign(
+            authenticatorRegistry.REMOVE_AUTHENTICATOR_TYPEHASH(),
+            abi.encode(accountIndex, AUTHENTICATOR_ADDRESS2, OFFCHAIN_SIGNER_COMMITMENT, nonce),
+            AUTH1_PRIVATE_KEY
+        );
+
+        uint256[] memory leaves = new uint256[](1);
+        leaves[0] = OFFCHAIN_SIGNER_COMMITMENT;
+        uint256[] memory proof = TreeHelper.leanInclusionProof(leaves, 0);
+
+        authenticatorRegistry.removeAuthenticator(
+            accountIndex,
+            AUTHENTICATOR_ADDRESS2,
+            OFFCHAIN_SIGNER_COMMITMENT,
+            OFFCHAIN_SIGNER_COMMITMENT,
+            signature,
+            proof,
+            nonce
+        );
+
+        // AUTHENTICATOR_ADDRESS2 should be removed; AUTHENTICATOR_ADDRESS1 remains
+        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(AUTHENTICATOR_ADDRESS2), 0);
+        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(AUTHENTICATOR_ADDRESS1), accountIndex);
+    }
+
+    function test_RecoverAccountSuccess() public {
+        // Use a recovery address we control via a known private key
+        uint256 RECOVERY_PRIVATE_KEY = 0xA11CE;
+        address recoverySigner = vm.addr(RECOVERY_PRIVATE_KEY);
+
+        address[] memory authenticatorAddresses = new address[](2);
+        authenticatorAddresses[0] = AUTHENTICATOR_ADDRESS1;
+        authenticatorAddresses[1] = AUTHENTICATOR_ADDRESS2;
+        authenticatorRegistry.createAccount(recoverySigner, authenticatorAddresses, OFFCHAIN_SIGNER_COMMITMENT);
+
+        uint256 accountIndex = 1;
+        uint256 nonce = 0;
+        address NEW_AUTHENTICATOR = address(0xBEEF);
+
+        bytes memory signature = eip712Sign(
+            authenticatorRegistry.RECOVER_ACCOUNT_TYPEHASH(),
+            abi.encode(accountIndex, NEW_AUTHENTICATOR, OFFCHAIN_SIGNER_COMMITMENT, nonce),
+            RECOVERY_PRIVATE_KEY
+        );
+
+        uint256[] memory leaves = new uint256[](1);
+        leaves[0] = OFFCHAIN_SIGNER_COMMITMENT;
+        uint256[] memory proof = TreeHelper.leanInclusionProof(leaves, 0);
+
+        authenticatorRegistry.recoverAccount(
+            accountIndex,
+            NEW_AUTHENTICATOR,
+            OFFCHAIN_SIGNER_COMMITMENT,
+            OFFCHAIN_SIGNER_COMMITMENT,
+            signature,
+            proof,
+            nonce
+        );
+
+        // Old authenticators removed
+        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(AUTHENTICATOR_ADDRESS1), 0);
+        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(AUTHENTICATOR_ADDRESS2), 0);
+        // New authenticator added
+        assertEq(authenticatorRegistry.authenticatorAddressToAccountIndex(NEW_AUTHENTICATOR), accountIndex);
+    }
 }
