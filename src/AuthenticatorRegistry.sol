@@ -63,33 +63,36 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
     //                        Constants                       //
     ////////////////////////////////////////////////////////////
 
-    bytes32 private constant UPDATE_AUTHENTICATOR_TYPEHASH = keccak256(
-        "UpdateAuthenticator(uint256 accountIndex, address oldAuthenticatorAddress, address newAuthenticatorAddress, uint256 newOffchainSignerCommitment, uint256 nonce)"
-    );
+    string public constant UPDATE_AUTHENTICATOR_TYPEDEF =
+        "UpdateAuthenticator(uint256 accountIndex, address oldAuthenticatorAddress, address newAuthenticatorAddress, uint256 newOffchainSignerCommitment, uint256 nonce)";
+    string public constant INSERT_AUTHENTICATOR_TYPEDEF =
+        "InsertAuthenticator(uint256 accountIndex, address newAuthenticatorAddress, uint256 newOffchainSignerCommitment, uint256 nonce)";
+    string public constant REMOVE_AUTHENTICATOR_TYPEDEF =
+        "RemoveAuthenticator(uint256 accountIndex, address authenticatorAddress, uint256 newOffchainSignerCommitment, uint256 nonce)";
+    string public constant RECOVER_ACCOUNT_TYPEDEF =
+        "RecoverAccount(uint256 accountIndex, address newAuthenticatorAddress, uint256 newOffchainSignerCommitment, uint256 nonce)";
 
-    bytes32 private constant INSERT_AUTHENTICATOR_TYPEHASH = keccak256(
-        "InsertAuthenticator(uint256 accountIndex, address newAuthenticatorAddress, uint256 newOffchainSignerCommitment, uint256 nonce)"
-    );
+    bytes32 public constant UPDATE_AUTHENTICATOR_TYPEHASH = keccak256(abi.encodePacked(UPDATE_AUTHENTICATOR_TYPEDEF));
+    bytes32 public constant INSERT_AUTHENTICATOR_TYPEHASH = keccak256(abi.encodePacked(INSERT_AUTHENTICATOR_TYPEDEF));
+    bytes32 public constant REMOVE_AUTHENTICATOR_TYPEHASH = keccak256(abi.encodePacked(REMOVE_AUTHENTICATOR_TYPEDEF));
+    bytes32 public constant RECOVER_ACCOUNT_TYPEHASH = keccak256(abi.encodePacked(RECOVER_ACCOUNT_TYPEDEF));
 
-    bytes32 private constant REMOVE_AUTHENTICATOR_TYPEHASH = keccak256(
-        "RemoveAuthenticator(uint256 accountIndex, address authenticatorAddress, uint256 newOffchainSignerCommitment, uint256 nonce)"
-    );
-
-    bytes32 private constant RECOVER_ACCOUNT_TYPEHASH = keccak256(
-        "RecoverAccount(uint256 accountIndex, address newAuthenticatorAddress, uint256 newOffchainSignerCommitment, uint256 nonce)"
-    );
+    string public constant EIP712_NAME = "AuthenticatorRegistry";
+    string public constant EIP712_VERSION = "1.0";
 
     ////////////////////////////////////////////////////////////
     //                        Constructor                     //
     ////////////////////////////////////////////////////////////
 
-    constructor(address _defaultRecoveryAddress) EIP712("AuthenticatorRegistry", "1.0") Ownable(msg.sender) {
-        defaultRecoveryAddress = _defaultRecoveryAddress;
-    }
-
+    constructor() EIP712(EIP712_NAME, EIP712_VERSION) {}
+    
     ////////////////////////////////////////////////////////////
     //                        Functions                       //
     ////////////////////////////////////////////////////////////
+
+    function domainSeparatorV4() public view returns (bytes32) {
+        return _domainSeparatorV4();
+    }
 
     /**
      * @dev Recovers the account index from a message hash and a signature.

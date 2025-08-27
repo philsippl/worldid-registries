@@ -34,4 +34,12 @@ library LeanIMT {
     function root(LeanIMTData storage self) public view returns (uint256) {
         return InternalLeanIMT._root(self);
     }
+
+    function initialize(LeanIMTData storage self, uint256 depth, uint256 size, uint256[] calldata sideNodes) external {
+        InternalLeanIMT._initialize(self, depth, size, sideNodes);
+    }
+
+    function debugPrint(LeanIMTData storage self) external view {
+        InternalLeanIMT._debugPrint(self);
+    }
 }
