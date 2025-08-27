@@ -8,6 +8,7 @@ import {TreeHelper} from "../src/TreeHelper.sol";
 contract AuthenticatorRegistryTest is Test {
     AuthenticatorRegistry public authenticatorRegistry;
 
+    address public constant DEFAULT_RECOVERY_ADDRESS = address(0xDEADBEEF);
     address public constant RECOVERY_ADDRESS = address(0xDEADBEEF);
     address public AUTHENTICATOR_ADDRESS1;
     address public AUTHENTICATOR_ADDRESS2;
@@ -56,13 +57,11 @@ contract AuthenticatorRegistryTest is Test {
     function test_CreateAccount() public {
         address[] memory authenticatorAddresses = new address[](1);
         authenticatorAddresses[0] = AUTHENTICATOR_ADDRESS1;
-        authenticatorRegistry.createAccount(RECOVERY_ADDRESS, authenticatorAddresses, OFFCHAIN_SIGNER_COMMITMENT);
+        authenticatorRegistry.createAccount(address(0), authenticatorAddresses, OFFCHAIN_SIGNER_COMMITMENT);
     }
 
     function test_CreateManyAccounts() public {
         address[] memory recoveryAddresses = new address[](2);
-        recoveryAddresses[0] = RECOVERY_ADDRESS;
-        recoveryAddresses[1] = RECOVERY_ADDRESS;
         address[][] memory authenticatorAddresses = new address[][](2);
         authenticatorAddresses[0] = new address[](1);
         authenticatorAddresses[0][0] = AUTHENTICATOR_ADDRESS1;
