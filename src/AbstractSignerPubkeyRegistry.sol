@@ -27,7 +27,6 @@ abstract contract AbstractSignerPubkeyRegistry is EIP712, Ownable {
         Ownable(msg.sender)
     {}
 
-    // ---- EIP-712 typehash providers (to be overridden by children) ----
     /**
      * @dev Returns the EIP-712 typehash for the Remove struct used by `remove`.
      */
@@ -43,7 +42,6 @@ abstract contract AbstractSignerPubkeyRegistry is EIP712, Ownable {
      */
     function _typehashUpdateSigner() internal pure virtual returns (bytes32);
 
-    // ---- Event hooks (to be implemented by children) ----
     /**
      * @dev Hook for children to emit a domain-specific "registered" event.
      * @param id The newly assigned id.
@@ -77,7 +75,6 @@ abstract contract AbstractSignerPubkeyRegistry is EIP712, Ownable {
      */
     function _emitSignerUpdated(uint256 id, address oldSigner, address newSigner) internal virtual;
 
-    // ---- Core logic shared by registries ----
     /**
      * @dev Registers a new id with `pubkey` and `signer`.
      *      Only callable by the contract owner.

@@ -6,7 +6,7 @@ import {AbstractSignerPubkeyRegistry} from "./AbstractSignerPubkeyRegistry.sol";
 contract RpRegistry is AbstractSignerPubkeyRegistry {
     // Keep constants and events for ABI stability and off-chain use
     string public constant EIP712_NAME = "RpRegistry";
-    string public constant EIP712_VERSION = "1";
+    string public constant EIP712_VERSION = "1.0";
 
     string public constant REMOVE_RP_TYPEDEF = "RemoveRp(uint256 rpId)";
     string public constant UPDATE_PUBKEY_TYPEDEF = "UpdatePubkey(uint256 rpId, bytes32 newPubkey, bytes32 oldPubkey)";
@@ -23,7 +23,6 @@ contract RpRegistry is AbstractSignerPubkeyRegistry {
 
     constructor() AbstractSignerPubkeyRegistry(EIP712_NAME, EIP712_VERSION) {}
 
-    // Public getters to preserve ABI of previous public mappings/vars
     function rpIdToPubkey(uint256 rpId) public view returns (bytes32) {
         return _idToPubkey[rpId];
     }
@@ -36,7 +35,6 @@ contract RpRegistry is AbstractSignerPubkeyRegistry {
         return _nextId;
     }
 
-    // Provide typehashes to the base contract
     function _typehashRemove() internal pure override returns (bytes32) {
         return REMOVE_RP_TYPEHASH;
     }
@@ -49,7 +47,6 @@ contract RpRegistry is AbstractSignerPubkeyRegistry {
         return UPDATE_SIGNER_TYPEHASH;
     }
 
-    // Emit events through hooks
     function _emitRegistered(uint256 id, bytes32 pubkey, address signer) internal override {
         emit RpRegistered(id, pubkey, signer);
     }

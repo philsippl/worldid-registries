@@ -5,7 +5,7 @@ import {AbstractSignerPubkeyRegistry} from "./AbstractSignerPubkeyRegistry.sol";
 
 contract CredentialIssuerRegistry is AbstractSignerPubkeyRegistry {
     string public constant EIP712_NAME = "CredentialIssuerRegistry";
-    string public constant EIP712_VERSION = "1";
+    string public constant EIP712_VERSION = "1.0";
 
     string public constant REMOVE_ISSUER_TYPEDEF = "RemoveIssuer(uint256 issuerId)";
     string public constant UPDATE_PUBKEY_TYPEDEF =
@@ -23,7 +23,6 @@ contract CredentialIssuerRegistry is AbstractSignerPubkeyRegistry {
 
     constructor() AbstractSignerPubkeyRegistry(EIP712_NAME, EIP712_VERSION) {}
 
-    // ABI: expose read methods similar to RpRegistry
     function issuerIdToPubkey(uint256 issuerId) public view returns (bytes32) {
         return _idToPubkey[issuerId];
     }
@@ -36,7 +35,6 @@ contract CredentialIssuerRegistry is AbstractSignerPubkeyRegistry {
         return _nextId;
     }
 
-    // Base overrides
     function _typehashRemove() internal pure override returns (bytes32) {
         return REMOVE_ISSUER_TYPEHASH;
     }
