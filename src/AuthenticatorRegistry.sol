@@ -24,6 +24,10 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
     uint256 public nextAccountIndex = 1;
     address public defaultRecoveryAddress;
 
+    // Root history tracking
+    mapping(uint256 => uint256) public rootToTimestamp;
+    uint256 public rootValidityWindow; // seconds; 0 means never expires
+
     ////////////////////////////////////////////////////////////
     //                        Events                          //
     ////////////////////////////////////////////////////////////
@@ -59,6 +63,8 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         uint256 oldOffchainSignerCommitment,
         uint256 newOffchainSignerCommitment
     );
+    event RootRecorded(uint256 indexed root, uint256 timestamp);
+    event RootValidityWindowUpdated(uint256 oldWindow, uint256 newWindow);
 
     ////////////////////////////////////////////////////////////
     //                        Constants                       //
@@ -93,13 +99,58 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
     //                        Functions                       //
     ////////////////////////////////////////////////////////////
 
+    /**
+     * @dev Initializes the tree.
+     * @param depth The depth of the tree.
+     * @param size The size of the tree.
+     * @param sideNodes The side nodes of the tree.
+     */
     function initTree(uint256 depth, uint256 size, uint256[] calldata sideNodes) external {
         nextAccountIndex = size + 1;
         LeanIMT.initialize(tree, depth, size, sideNodes);
+        _recordCurrentRoot();
     }
 
+    /**
+     * @dev Returns the domain separator for the EIP712 structs.
+     */
     function domainSeparatorV4() public view returns (bytes32) {
         return _domainSeparatorV4();
+    }
+
+    /**
+     * @dev Returns the current tree root.
+     */
+    function currentRoot() external view returns (uint256) {
+        return LeanIMT.root(tree);
+    }
+
+    /**
+     * @dev Sets the validity window for historic roots. 0 means roots never expire.
+     */
+    function setRootValidityWindow(uint256 newWindow) external onlyOwner {
+        uint256 old = rootValidityWindow;
+        rootValidityWindow = newWindow;
+        emit RootValidityWindowUpdated(old, newWindow);
+    }
+
+    /**
+     * @dev Checks whether `root` is known and not expired according to `rootValidityWindow`.
+     */
+    function isValidRoot(uint256 root) external view returns (bool) {
+        uint256 ts = rootToTimestamp[root];
+        if (ts == 0) return false;
+        if (rootValidityWindow == 0) return true;
+        return block.timestamp <= ts + rootValidityWindow;
+    }
+
+    /**
+     * @dev Records the current tree root.
+     */
+    function _recordCurrentRoot() internal {
+        uint256 root = LeanIMT.root(tree);
+        rootToTimestamp[root] = block.timestamp;
+        emit RootRecorded(root, block.timestamp);
     }
 
     /**
@@ -145,6 +196,7 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
 
         // Update tree
         tree.insert(offchainSignerCommitment);
+        _recordCurrentRoot();
 
         emit AccountCreated(nextAccountIndex, recoveryAddress, authenticatorAddresses, offchainSignerCommitment);
 
@@ -193,6 +245,7 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
 
         // Update tree
         tree.insertMany(offchainSignerCommitments);
+        _recordCurrentRoot();
     }
 
     /**
@@ -257,6 +310,7 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
             oldOffchainSignerCommitment,
             newOffchainSignerCommitment
         );
+        _recordCurrentRoot();
     }
 
     /**
@@ -302,6 +356,7 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         emit AuthenticatorInserted(
             accountIndex, newAuthenticatorAddress, oldOffchainSignerCommitment, newOffchainSignerCommitment
         );
+        _recordCurrentRoot();
     }
 
     /**
@@ -350,6 +405,7 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         emit AuthenticatorRemoved(
             accountIndex, authenticatorAddress, oldOffchainSignerCommitment, newOffchainSignerCommitment
         );
+        _recordCurrentRoot();
     }
 
     /**
@@ -402,5 +458,6 @@ contract AuthenticatorRegistry is EIP712, Ownable2Step {
         emit AccountRecovered(
             accountIndex, newAuthenticatorAddress, oldOffchainSignerCommitment, newOffchainSignerCommitment
         );
+        _recordCurrentRoot();
     }
 }
