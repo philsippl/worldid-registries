@@ -16,6 +16,8 @@ abstract contract AbstractSignerPubkeyRegistry is EIP712, Ownable {
     mapping(uint256 => bytes32) internal _idToPubkey;
     mapping(address => uint256) internal _addressToId;
     uint256 internal _nextId = 1;
+    // Per-id EIP-712 nonce to prevent signature replay across updates
+    mapping(uint256 => uint256) internal _nonces;
 
     /**
      * @dev Initializes the EIP-712 domain and sets the deployer as the initial owner.
@@ -112,14 +114,14 @@ abstract contract AbstractSignerPubkeyRegistry is EIP712, Ownable {
      */
     function remove(uint256 id, bytes calldata signature) public onlyOwner {
         require(_idToPubkey[id] != bytes32(0), "Registry: id not registered");
-
-        bytes32 hash = _hashTypedDataV4(keccak256(abi.encode(_typehashRemove(), id)));
+        bytes32 hash = _hashTypedDataV4(keccak256(abi.encode(_typehashRemove(), id, _nonces[id])));
         address signer = ECDSA.recover(hash, signature);
         require(_addressToId[signer] == id, "Registry: invalid signature");
 
         bytes32 oldPubkey = _idToPubkey[id];
         _emitRemoved(id, oldPubkey, signer);
 
+        _nonces[id]++;
         delete _idToPubkey[id];
         delete _addressToId[signer];
     }
@@ -141,13 +143,15 @@ abstract contract AbstractSignerPubkeyRegistry is EIP712, Ownable {
         bytes32 oldPubkey = _idToPubkey[id];
         require(oldPubkey != bytes32(0), "Registry: id not registered");
         require(newPubkey != bytes32(0), "Registry: newPubkey cannot be zero");
-
-        bytes32 hash = _hashTypedDataV4(keccak256(abi.encode(_typehashUpdatePubkey(), id, newPubkey, oldPubkey)));
+        bytes32 hash =
+            _hashTypedDataV4(keccak256(abi.encode(_typehashUpdatePubkey(), id, newPubkey, oldPubkey, _nonces[id])));
         address signer = ECDSA.recover(hash, signature);
         require(_addressToId[signer] == id, "Registry: invalid signature");
 
         _idToPubkey[id] = newPubkey;
         _emitPubkeyUpdated(id, oldPubkey, newPubkey, signer);
+
+        _nonces[id]++;
     }
 
     /**
@@ -169,13 +173,22 @@ abstract contract AbstractSignerPubkeyRegistry is EIP712, Ownable {
         require(newSigner != address(0), "Registry: newSigner cannot be zero address");
         require(_addressToId[newSigner] == 0, "Registry: newSigner already registered");
 
-        bytes32 hash = _hashTypedDataV4(keccak256(abi.encode(_typehashUpdateSigner(), id, newSigner)));
+        bytes32 hash = _hashTypedDataV4(keccak256(abi.encode(_typehashUpdateSigner(), id, newSigner, _nonces[id])));
         address oldSigner = ECDSA.recover(hash, signature);
         require(_addressToId[oldSigner] == id, "Registry: invalid signature");
 
         _addressToId[newSigner] = id;
         delete _addressToId[oldSigner];
         _emitSignerUpdated(id, oldSigner, newSigner);
+
+        _nonces[id]++;
+    }
+
+    /**
+     * @dev Returns the current nonce for the given id.
+     */
+    function nonceOf(uint256 id) public view returns (uint256) {
+        return _nonces[id];
     }
 
     // (no helper getters; children can access internal storage directly)

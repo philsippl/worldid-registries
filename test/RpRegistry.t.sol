@@ -22,7 +22,7 @@ contract RpRegistryTest is Test {
     }
 
     function _signRemove(uint256 pk, uint256 rpId) internal view returns (bytes memory) {
-        bytes32 structHash = keccak256(abi.encode(registry.REMOVE_RP_TYPEHASH(), rpId));
+        bytes32 structHash = keccak256(abi.encode(registry.REMOVE_RP_TYPEHASH(), rpId, registry.nonceOf(rpId)));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _domainSeparator(), structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
         return abi.encodePacked(r, s, v);
@@ -33,14 +33,16 @@ contract RpRegistryTest is Test {
         view
         returns (bytes memory)
     {
-        bytes32 structHash = keccak256(abi.encode(registry.UPDATE_PUBKEY_TYPEHASH(), rpId, newPubkey, oldPubkey));
+        bytes32 structHash =
+            keccak256(abi.encode(registry.UPDATE_PUBKEY_TYPEHASH(), rpId, newPubkey, oldPubkey, registry.nonceOf(rpId)));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _domainSeparator(), structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
         return abi.encodePacked(r, s, v);
     }
 
     function _signUpdateSigner(uint256 pk, uint256 rpId, address newSigner) internal view returns (bytes memory) {
-        bytes32 structHash = keccak256(abi.encode(registry.UPDATE_SIGNER_TYPEHASH(), rpId, newSigner));
+        bytes32 structHash =
+            keccak256(abi.encode(registry.UPDATE_SIGNER_TYPEHASH(), rpId, newSigner, registry.nonceOf(rpId)));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _domainSeparator(), structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
         return abi.encodePacked(r, s, v);

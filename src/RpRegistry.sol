@@ -12,10 +12,12 @@ contract RpRegistry is AbstractSignerPubkeyRegistry {
     string public constant EIP712_NAME = "RpRegistry";
     string public constant EIP712_VERSION = "1.0";
 
-    string public constant REMOVE_RP_TYPEDEF = "RemoveRp(uint256 rpId)";
-    string public constant UPDATE_PUBKEY_TYPEDEF = "UpdatePubkey(uint256 rpId, bytes32 newPubkey, bytes32 oldPubkey)";
-    string public constant UPDATE_SIGNER_TYPEDEF = "UpdateSigner(uint256 rpId, address newSigner)";
-    string public constant REGISTER_ACTION_TYPEDEF = "RegisterAction(uint256 rpId, uint256 validityDuration)";
+    string public constant REMOVE_RP_TYPEDEF = "RemoveRp(uint256 rpId,uint256 nonce)";
+    string public constant UPDATE_PUBKEY_TYPEDEF =
+        "UpdatePubkey(uint256 rpId, bytes32 newPubkey, bytes32 oldPubkey, uint256 nonce)";
+    string public constant UPDATE_SIGNER_TYPEDEF = "UpdateSigner(uint256 rpId, address newSigner, uint256 nonce)";
+    string public constant REGISTER_ACTION_TYPEDEF =
+        "RegisterAction(uint256 rpId, uint256 validityDuration, uint256 nonce)";
 
     bytes32 public constant REMOVE_RP_TYPEHASH = keccak256(abi.encodePacked(REMOVE_RP_TYPEDEF));
     bytes32 public constant UPDATE_PUBKEY_TYPEHASH = keccak256(abi.encodePacked(UPDATE_PUBKEY_TYPEDEF));
@@ -37,7 +39,8 @@ contract RpRegistry is AbstractSignerPubkeyRegistry {
      * @param signature The signature of the action.
      */
     function registerAction(uint256 rpId, uint256 validityDuration, bytes calldata signature) public onlyOwner {
-        bytes32 hash = _hashTypedDataV4(keccak256(abi.encode(REGISTER_ACTION_TYPEHASH, rpId, validityDuration)));
+        bytes32 hash =
+            _hashTypedDataV4(keccak256(abi.encode(REGISTER_ACTION_TYPEHASH, rpId, validityDuration, _nonces[rpId])));
         address signer = ECDSA.recover(hash, signature);
         require(signer != address(0), "Invalid signature");
         require(_addressToId[signer] == rpId, "Signer not registered for this RP");
@@ -46,6 +49,7 @@ contract RpRegistry is AbstractSignerPubkeyRegistry {
         actionValidity[actionIdPacked] = block.timestamp + validityDuration;
         emit ActionRegistered(rpId, nextActionId[rpId], validityDuration);
         nextActionId[rpId]++;
+        _nonces[rpId]++;
     }
 
     /**

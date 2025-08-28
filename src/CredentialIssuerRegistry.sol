@@ -7,10 +7,11 @@ contract CredentialIssuerRegistry is AbstractSignerPubkeyRegistry {
     string public constant EIP712_NAME = "CredentialIssuerRegistry";
     string public constant EIP712_VERSION = "1.0";
 
-    string public constant REMOVE_ISSUER_TYPEDEF = "RemoveIssuer(uint256 issuerId)";
+    string public constant REMOVE_ISSUER_TYPEDEF = "RemoveIssuer(uint256 issuerId,uint256 nonce)";
     string public constant UPDATE_PUBKEY_TYPEDEF =
-        "UpdateIssuerPubkey(uint256 issuerId, bytes32 newPubkey, bytes32 oldPubkey)";
-    string public constant UPDATE_SIGNER_TYPEDEF = "UpdateIssuerSigner(uint256 issuerId, address newSigner)";
+        "UpdateIssuerPubkey(uint256 issuerId, bytes32 newPubkey, bytes32 oldPubkey, uint256 nonce)";
+    string public constant UPDATE_SIGNER_TYPEDEF =
+        "UpdateIssuerSigner(uint256 issuerId, address newSigner, uint256 nonce)";
 
     bytes32 public constant REMOVE_ISSUER_TYPEHASH = keccak256(abi.encodePacked(REMOVE_ISSUER_TYPEDEF));
     bytes32 public constant UPDATE_PUBKEY_TYPEHASH = keccak256(abi.encodePacked(UPDATE_PUBKEY_TYPEDEF));
