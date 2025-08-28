@@ -1,51 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import {Test} from "forge-std/Test.sol";
 import {RpRegistry} from "../src/RpRegistry.sol";
+import {RegistryTestBase, RegistryLike} from "./RegistryTestBase.t.sol";
 
-contract RpRegistryTest is Test {
+contract RpRegistryTest is RegistryTestBase {
     RpRegistry private registry;
-
-    // EIP712 Domain typehash
-    bytes32 private constant EIP712_DOMAIN_TYPEHASH =
-        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
     function setUp() public {
         registry = new RpRegistry();
-    }
-
-    function _domainSeparator() internal view returns (bytes32) {
-        bytes32 nameHash = keccak256(bytes(registry.EIP712_NAME()));
-        bytes32 versionHash = keccak256(bytes(registry.EIP712_VERSION()));
-        return keccak256(abi.encode(EIP712_DOMAIN_TYPEHASH, nameHash, versionHash, block.chainid, address(registry)));
-    }
-
-    function _signRemove(uint256 pk, uint256 rpId) internal view returns (bytes memory) {
-        bytes32 structHash = keccak256(abi.encode(registry.REMOVE_RP_TYPEHASH(), rpId, registry.nonceOf(rpId)));
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _domainSeparator(), structHash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
-        return abi.encodePacked(r, s, v);
-    }
-
-    function _signUpdatePubkey(uint256 pk, uint256 rpId, bytes32 newPubkey, bytes32 oldPubkey)
-        internal
-        view
-        returns (bytes memory)
-    {
-        bytes32 structHash =
-            keccak256(abi.encode(registry.UPDATE_PUBKEY_TYPEHASH(), rpId, newPubkey, oldPubkey, registry.nonceOf(rpId)));
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _domainSeparator(), structHash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
-        return abi.encodePacked(r, s, v);
-    }
-
-    function _signUpdateSigner(uint256 pk, uint256 rpId, address newSigner) internal view returns (bytes memory) {
-        bytes32 structHash =
-            keccak256(abi.encode(registry.UPDATE_SIGNER_TYPEHASH(), rpId, newSigner, registry.nonceOf(rpId)));
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _domainSeparator(), structHash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
-        return abi.encodePacked(r, s, v);
     }
 
     function testRegisterAndGetters() public {
@@ -83,7 +46,9 @@ contract RpRegistryTest is Test {
         registry.register(pubkey, signer);
 
         bytes32 newPubkey = keccak256("new");
-        bytes memory sig = _signUpdatePubkey(signerPk, 1, newPubkey, pubkey);
+        bytes memory sig = _signUpdatePubkey(
+            registry.UPDATE_PUBKEY_TYPEHASH(), RegistryLike(address(registry)), signerPk, 1, newPubkey, pubkey
+        );
 
         vm.expectEmit();
         emit RpRegistry.PubkeyUpdated(1, pubkey, newPubkey, signer);
@@ -99,7 +64,9 @@ contract RpRegistryTest is Test {
         registry.register(keccak256("k"), signer);
 
         bytes32 newPubkey = keccak256("new");
-        bytes memory sig = _signUpdatePubkey(badPk, 1, newPubkey, keccak256("k"));
+        bytes memory sig = _signUpdatePubkey(
+            registry.UPDATE_PUBKEY_TYPEHASH(), RegistryLike(address(registry)), badPk, 1, newPubkey, keccak256("k")
+        );
 
         vm.expectRevert(bytes("Registry: invalid signature"));
         registry.updatePubkey(1, newPubkey, sig);
@@ -111,7 +78,8 @@ contract RpRegistryTest is Test {
         registry.register(keccak256("k"), oldSigner);
 
         address newSigner = vm.addr(0x2222);
-        bytes memory sig = _signUpdateSigner(oldPk, 1, newSigner);
+        bytes memory sig =
+            _signUpdateSigner(registry.UPDATE_SIGNER_TYPEHASH(), RegistryLike(address(registry)), oldPk, 1, newSigner);
 
         vm.expectEmit();
         emit RpRegistry.SignerUpdated(1, oldSigner, newSigner);
@@ -127,7 +95,7 @@ contract RpRegistryTest is Test {
         bytes32 pubkey = keccak256("k");
         registry.register(pubkey, signer);
 
-        bytes memory sig = _signRemove(signerPk, 1);
+        bytes memory sig = _signRemove(registry.REMOVE_RP_TYPEHASH(), RegistryLike(address(registry)), signerPk, 1);
 
         vm.expectEmit();
         emit RpRegistry.RpRemoved(1, pubkey, signer);
