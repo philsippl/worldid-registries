@@ -4,8 +4,7 @@ pragma solidity >=0.8.8;
 
 library Poseidon2T2Reference {
     // BN256 scalar field
-    uint256 constant PRIME =
-        0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001;
+    uint256 constant PRIME = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001;
 
     uint256 constant t = 2;
     uint256 constant rounds_f = 8;
@@ -24,10 +23,7 @@ library Poseidon2T2Reference {
     }
 
     // Result is not modulo reduced
-    function permutation_inplace(
-        uint256[2] memory state,
-        Constants memory constants
-    ) private pure {
+    function permutation_inplace(uint256[2] memory state, Constants memory constants) private pure {
         // Apply 1st linear layer
         external_matrix_multiplication(state);
         (state);
@@ -35,54 +31,40 @@ library Poseidon2T2Reference {
         // First set of external rounds
         uint256 rf_half = rounds_f / 2;
         for (uint256 r = 0; r < rf_half; r++) {
-            add_external_round_constants(
-                state,
-                constants.external_round_constants,
-                r
-            );
+            add_external_round_constants(state, constants.external_round_constants, r);
             external_s_box(state);
             external_matrix_multiplication(state);
         }
 
         // Internal rounds
         for (uint256 r = 0; r < rounds_p; r++) {
-            add_internal_round_constants(
-                state,
-                constants.internal_round_constants,
-                r
-            );
+            add_internal_round_constants(state, constants.internal_round_constants, r);
             internal_s_box(state);
             internal_matrix_multiplication(state);
         }
 
         // Remaining external rounds
         for (uint256 r = rf_half; r < rounds_f; r++) {
-            add_external_round_constants(
-                state,
-                constants.external_round_constants,
-                r
-            );
+            add_external_round_constants(state, constants.external_round_constants, r);
             external_s_box(state);
             external_matrix_multiplication(state);
         }
     }
 
     // We don't perform modulo reduction at all here
-    function add_external_round_constants(
-        uint256[2] memory state,
-        uint256[2][8] memory round_constant,
-        uint256 round
-    ) private pure {
+    function add_external_round_constants(uint256[2] memory state, uint256[2][8] memory round_constant, uint256 round)
+        private
+        pure
+    {
         state[0] += round_constant[round][0];
         state[1] += round_constant[round][1];
     }
 
     // We don't perform modulo reduction at all here
-    function add_internal_round_constants(
-        uint256[2] memory state,
-        uint256[56] memory round_constant,
-        uint256 round
-    ) private pure {
+    function add_internal_round_constants(uint256[2] memory state, uint256[56] memory round_constant, uint256 round)
+        private
+        pure
+    {
         state[0] += round_constant[round];
     }
 
@@ -93,9 +75,7 @@ library Poseidon2T2Reference {
     //  in1 + rc has at most 255 bits
     //  => in0 + rc + sum has at most 256 bits
     //  => in1 + rc + sum has at most 256 bits
-    function external_matrix_multiplication(
-        uint256[2] memory input
-    ) private pure {
+    function external_matrix_multiplication(uint256[2] memory input) private pure {
         uint256 sum = input[0] + input[1];
         input[0] += sum;
         input[1] += sum;
@@ -108,9 +88,7 @@ library Poseidon2T2Reference {
     //  in1 + in1 has at most 255 bits
     //  => in0 + rc + sum has at most 256 bits
     //  => in1 + in1 + sum has at most 256 bits
-    function internal_matrix_multiplication(
-        uint256[2] memory input
-    ) private pure {
+    function internal_matrix_multiplication(uint256[2] memory input) private pure {
         uint256 sum = input[0] + input[1];
         input[0] += sum;
         input[1] += input[1] + sum;

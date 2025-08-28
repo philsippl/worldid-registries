@@ -102,53 +102,39 @@ def int_round(c):
     """)
 
 def generate():
-    body = []
-    body.append("let F := 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001\n")
-    body.append(textwrap.dedent("""
-        // Load inputs
-        let l := mload(add(inputs, 0x20))
-        let r := mload(add(inputs, 0x40))
-
-        // Initial linear layer: [1 1; 1 1]
-        {
-            let sum := add(l, r)
-            l := add(l, sum)
-            r := add(r, sum)
-        }
-    """))
-    body.append("// First 4 external rounds\n")
+    lines = []
+    lines.append("// SPDX-License-Identifier: MIT\n")
+    lines.append("\npragma solidity >=0.8.8;\n\n")
+    lines.append("library Poseidon2T2 {\n")
+    lines.append("    uint256 constant PRIME = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001;\n\n")
+    lines.append("    function compress(uint256[2] memory inputs) public pure returns (uint256) {\n")
+    lines.append("        uint256 l = inputs[0];\n        uint256 r = inputs[1];\n")
+    # initial linear layer
+    lines.append("        unchecked { uint256 s = l + r; l += s; r += s; }\n")
+    # first 4 external rounds
     for i in range(4):
-        body.append(ext_round(*EXT[i]))
-    body.append("// 56 internal rounds\n")
+        c0,c1 = EXT[i]
+        lines.append(f"        unchecked {{ l += 0x{c0}; r += 0x{c1}; }}\n")
+        lines.append("        { uint256 t = mulmod(l, l, PRIME); t = mulmod(t, t, PRIME); l = mulmod(t, l, PRIME); }\n")
+        lines.append("        { uint256 t = mulmod(r, r, PRIME); t = mulmod(t, t, PRIME); r = mulmod(t, r, PRIME); }\n")
+        lines.append("        unchecked { uint256 s = l + r; l += s; r += s; }\n")
+    # internal rounds
     for c in INT:
-        body.append(int_round(c))
-    body.append("// Remaining 4 external rounds\n")
-    for i in range(4, 8):
-        body.append(ext_round(*EXT[i]))
-    body.append(textwrap.dedent("""
-        // Add first input and reduce
-        l := add(l, mload(add(inputs, 0x20)))
-        mstore(0x00, mod(l, F))
-        return(0x00, 0x20)
-    """))
-    asm_body = "\n".join(body)
-
-    sol = f"""// SPDX-License-Identifier: MIT
-
-pragma solidity >=0.8.8;
-
-library Poseidon2T2 {{
-    uint256 constant PRIME = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001;
-
-    function compress(uint256[2] memory inputs) public pure returns (uint256) {{
-        assembly {{
-{asm_body}
-        }}
-    }}
-}}
-"""
-    return sol
+        lines.append(f"        unchecked {{ l += 0x{c}; }}\n")
+        lines.append("        { uint256 t = mulmod(l, l, PRIME); t = mulmod(t, t, PRIME); l = mulmod(t, l, PRIME); }\n")
+        lines.append("        r = r % PRIME;\n")
+        lines.append("        unchecked { uint256 s = l + r; l += s; r = r + r + s; }\n")
+    # remaining 4 external rounds
+    for i in range(4,8):
+        c0,c1 = EXT[i]
+        lines.append(f"        unchecked {{ l += 0x{c0}; r += 0x{c1}; }}\n")
+        lines.append("        { uint256 t = mulmod(l, l, PRIME); t = mulmod(t, t, PRIME); l = mulmod(t, l, PRIME); }\n")
+        lines.append("        { uint256 t = mulmod(r, r, PRIME); t = mulmod(t, t, PRIME); r = mulmod(t, r, PRIME); }\n")
+        lines.append("        unchecked { uint256 s = l + r; l += s; r += s; }\n")
+    # final squeeze
+    lines.append("        unchecked { l += inputs[0]; }\n        return l % PRIME;\n")
+    lines.append("    }\n}\n")
+    return "".join(lines)
 
 if __name__ == "__main__":
     print(generate())
-
