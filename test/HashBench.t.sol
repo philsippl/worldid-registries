@@ -15,57 +15,66 @@ contract LeanIMTTest is Test {
 
     function test_Skyscraper() public {
         uint256 startGas = gasleft();
+        uint256 l = 1337;
+        uint256 r = 42;
         for (uint256 i = 0; i < HASH_COUNT; i++) {
-            Skyscraper.compress(uint256(0), uint256(0));
+            l = Skyscraper.compress(l, r);
         }
         uint256 endGas = gasleft();
         console.log("Gas used: %s", (startGas - endGas) / HASH_COUNT);
     }
 
     function test_PoseidonT3() public {
-        uint256[2] memory inputs = [uint256(0), uint256(0)];
         uint256 startGas = gasleft();
+        uint256 l = 1337;
+        uint256 r = 42;
         for (uint256 i = 0; i < HASH_COUNT; i++) {
-            PoseidonT3.hash(inputs);
+            l = PoseidonT3.hash([l, r]);
         }
         uint256 endGas = gasleft();
         console.log("Gas used: %s", (startGas - endGas) / HASH_COUNT);
     }
 
     function test_PoseidonT4() public {
-        uint256[3] memory inputs = [uint256(0), uint256(0), uint256(0)];
         uint256 startGas = gasleft();
+        uint256 l = 1337;
+        uint256 r = 42;
+        uint256 s = 1234;
         for (uint256 i = 0; i < HASH_COUNT; i++) {
-            PoseidonT4.hash(inputs);
+            l = PoseidonT4.hash([l, r, s]);
         }
         uint256 endGas = gasleft();
         console.log("Gas used: %s", (startGas - endGas) / HASH_COUNT);
     }
 
     function test_Poseidon2T2() public {
-        uint256[2] memory inputs = [uint256(0), uint256(0)];
+        uint256 l = 1337;
+        uint256 r = 42;
         uint256 startGas = gasleft();
         for (uint256 i = 0; i < HASH_COUNT; i++) {
-            Poseidon2T2.compress(inputs);
+            l = Poseidon2T2.compress([l, r]);
         }
         uint256 endGas = gasleft();
         console.log("Gas used: %s", (startGas - endGas) / HASH_COUNT);
     }
 
     function test_Poseidon2T2Reference() public {
-        uint256[2] memory inputs = [uint256(0), uint256(0)];
+        uint256 l = 1337;
+        uint256 r = 42;
         uint256 startGas = gasleft();
         for (uint256 i = 0; i < HASH_COUNT; i++) {
-            Poseidon2T2Reference.compress(inputs);
+            l = Poseidon2T2Reference.compress([l, r]);
         }
         uint256 endGas = gasleft();
         console.log("Gas used: %s", (startGas - endGas) / HASH_COUNT);
     }
 
     function test_Poseidon2T2EqualsReference() public {
-        uint256[2] memory inputs = [uint256(0xDEADBEEF), uint256(0x12345678)];
-        uint256 result = Poseidon2T2.compress(inputs);
-        uint256 resultReference = Poseidon2T2Reference.compress(inputs);
-        assertEq(result, resultReference);
+        for (uint256 i = 0; i < 100; i++) {
+            uint256[2] memory inputs = [uint256(0xDEADBEEF) + i, uint256(0x12345678) + i];
+            uint256 result = Poseidon2T2.compress(inputs);
+            uint256 resultReference = Poseidon2T2Reference.compress(inputs);
+            assertEq(result, resultReference);
+        }
     }
 }
