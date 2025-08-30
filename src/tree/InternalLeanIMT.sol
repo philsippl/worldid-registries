@@ -2,7 +2,7 @@
 pragma solidity ^0.8.4;
 
 import {Skyscraper} from "../hash/Skyscraper.sol";
-import {PoseidonT3} from "poseidon-solidity/PoseidonT3.sol";
+import {Poseidon2T2} from "../hash/Poseidon2.sol";
 import {console} from "forge-std/console.sol";
 
 uint256 constant SNARK_SCALAR_FIELD =
@@ -57,8 +57,8 @@ library InternalLeanIMT {
      * @return The hash of the two inputs.
      */
     function hash(uint256 a, uint256 b) internal pure returns (uint256) {
-        return Skyscraper.compress(a, b);
-        // return PoseidonT3.hash([a, b]);
+        // return Skyscraper.compress(a, b);
+        return Poseidon2T2.compress([a, b]);
     }
 
     /// @dev Inserts a new leaf into the incremental merkle tree.

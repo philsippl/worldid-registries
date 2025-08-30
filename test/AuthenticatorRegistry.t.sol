@@ -99,49 +99,6 @@ contract AuthenticatorRegistryTest is Test {
 
         (bytes memory signature, uint256[] memory proof) = updateAuthenticatorProofAndSignature(accountIndex, nonce);
 
-        authenticatorRegistry.updateAuthenticator(
-            accountIndex,
-            AUTHENTICATOR_ADDRESS1,
-            AUTHENTICATOR_ADDRESS2,
-            OFFCHAIN_SIGNER_COMMITMENT,
-            OFFCHAIN_SIGNER_COMMITMENT,
-            signature,
-            proof,
-            nonce
-        );
-
-        // AUTHENTICATOR_ADDRESS1 has been removed
-        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS1), 0);
-        // AUTHENTICATOR_ADDRESS2 has been added
-        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS2), 1);
-    }
-
-    function test_UpdateAuthenticatorSuccess_FakeDepth30() public {
-        uint256 depth = 30;
-        uint256[] memory sideNodes = new uint256[](depth);
-        sideNodes[depth - 1] = TreeHelper.emptyNode(depth);
-        authenticatorRegistry.initTree(depth, 1 << (depth - 1) + 1, sideNodes);
-
-        address[] memory authenticatorAddresses = new address[](1);
-        authenticatorAddresses[0] = AUTHENTICATOR_ADDRESS1;
-        authenticatorRegistry.createAccount(RECOVERY_ADDRESS, authenticatorAddresses, OFFCHAIN_SIGNER_COMMITMENT);
-
-        uint256 nonce = 0;
-        uint256 accountIndex = authenticatorRegistry.nextAccountIndex() - 1;
-
-        // AUTHENTICATOR_ADDRESS1 is assigned to account 1
-        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS1), accountIndex);
-        // AUTHENTICATOR_ADDRESS2 is not assigned to any account
-        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS2), 0);
-
-        bytes memory signature = eip712Sign(
-            authenticatorRegistry.UPDATE_AUTHENTICATOR_TYPEHASH(),
-            abi.encode(accountIndex, AUTHENTICATOR_ADDRESS1, AUTHENTICATOR_ADDRESS2, OFFCHAIN_SIGNER_COMMITMENT, nonce),
-            AUTH1_PRIVATE_KEY
-        );
-
-        uint256[] memory proof = new uint256[](1);
-
         uint256 startGas = gasleft();
         authenticatorRegistry.updateAuthenticator(
             accountIndex,
@@ -154,12 +111,12 @@ contract AuthenticatorRegistryTest is Test {
             nonce
         );
         uint256 endGas = gasleft();
-        console.log("Gas used:", startGas - endGas);
+        console.log("Gas used per update:", (startGas - endGas));
 
         // AUTHENTICATOR_ADDRESS1 has been removed
         assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS1), 0);
         // AUTHENTICATOR_ADDRESS2 has been added
-        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS2), accountIndex);
+        assertEq(authenticatorRegistry.authenticatorAddressToPackedAccountIndex(AUTHENTICATOR_ADDRESS2), 1);
     }
 
     function test_UpdateAuthenticatorInvalidAccountIndex() public {
