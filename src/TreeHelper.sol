@@ -2,13 +2,13 @@
 pragma solidity ^0.8.13;
 
 import {Skyscraper} from "./hash/Skyscraper.sol";
-import {PoseidonT3} from "poseidon-solidity/PoseidonT3.sol";
+import {Poseidon2T2} from "./hash/Poseidon2.sol";
 import {console} from "forge-std/console.sol";
 
 library TreeHelper {
     function hash(uint256 a, uint256 b) internal pure returns (uint256) {
-        return Skyscraper.compress(a, b);
-        // return PoseidonT3.hash([a, b]);
+        // return Skyscraper.compress(a, b);
+        return Poseidon2T2.compress([a, b]);
     }
 
     function emptyNode(uint256 depth) internal pure returns (uint256) {
